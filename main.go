@@ -1,10 +1,8 @@
 package main
 
 import (
-	"cma-lab-go/matrix"
-	"cma-lab-go/utils"
+	"cma-lab-go/io"
 	"fmt"
-	"math"
 	"math/rand"
 	"runtime"
 	"time"
@@ -15,16 +13,14 @@ func main() {
 	runtime.GOMAXPROCS(20) // number of CPUs [configure it later]
 	rand.Seed(time.Now().UnixNano())
 
-	// remember: const in go has another meaning - evaluated at compile time
-	const SIZE = 3000 // untyped const
+	const MATRIX_A_PATH = "data/matrixA.txt"
 
-	//fmt.Printf("%.2f", utils.GenerateSquareMatrix(SIZE, -1, 1))
+	var matrixReader io.MatrixReader
+	matrixReader, _ = io.NewFileMatrixReader(MATRIX_A_PATH)
 
-	lhs := utils.GenerateSquareMatrix(SIZE, -math.MaxInt64, math.MaxFloat64)
-	rhs := utils.GenerateSquareMatrix(SIZE, -math.MaxInt64, math.MaxFloat64)
+	dim, _ := matrixReader.ReadDimension()
+	m, _ := matrixReader.ReadMatrix(dim)
 
-	start := time.Now()
-	_, _ = matrix.MultiplyMatrices(lhs, rhs)
-	fmt.Printf("SIZE = %v => time = %v milliseconds", SIZE,
-		time.Since(start).Milliseconds())
+	var matrixWriter io.MatrixWriter = io.NewConsoleMatrixWriter()
+	matrixWriter.WriteMatrix(m)
 }
