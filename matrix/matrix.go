@@ -9,15 +9,15 @@ import (
 var wg = sync.WaitGroup{}
 
 type Column struct {
-	data []float64
+	Data []float64
 }
 
 type Row struct {
-	data []float64
+	Data []float64
 }
 
 type SquareMatrix struct {
-	data [][]float64
+	Data [][]float64
 }
 
 // All slices are copied by pointer, therefore
@@ -25,11 +25,11 @@ type SquareMatrix struct {
 
 // Initialization functions
 func NewColumn(data []float64) *Column {
-	return &Column{data: data}
+	return &Column{Data: data}
 }
 
 func NewRow(data []float64) *Row {
-	return &Row{data: data}
+	return &Row{Data: data}
 }
 
 func NewSquareMatrix(data [][]float64) (*SquareMatrix, error) {
@@ -38,7 +38,7 @@ func NewSquareMatrix(data [][]float64) (*SquareMatrix, error) {
 			return &SquareMatrix{}, fmt.Errorf("inconsistent matrix size")
 		}
 	}
-	return &SquareMatrix{data: data}, nil
+	return &SquareMatrix{Data: data}, nil
 }
 
 // Multiplication functions
@@ -51,17 +51,17 @@ func multiplyVectors(lhs, rhs []float64) float64 {
 }
 
 func MultiplyMatrixOnColumn(matrix *SquareMatrix, column *Column) (*Column, error) {
-	if len(matrix.data) != len(column.data) {
+	if len(matrix.Data) != len(column.Data) {
 		return &Column{}, fmt.Errorf("inconsistent matrix and column sizes")
 	}
 
 	var result Column
-	result.data = make([]float64, len(matrix.data))
+	result.Data = make([]float64, len(matrix.Data))
 
-	wg.Add(len(result.data))
-	for i := 0; i < len(result.data); i++ {
+	wg.Add(len(result.Data))
+	for i := 0; i < len(result.Data); i++ {
 		go func(i int) {
-			result.data[i] = multiplyVectors(matrix.data[i], column.data)
+			result.Data[i] = multiplyVectors(matrix.Data[i], column.Data)
 			wg.Done()
 		}(i)
 	}
@@ -71,17 +71,17 @@ func MultiplyMatrixOnColumn(matrix *SquareMatrix, column *Column) (*Column, erro
 }
 
 func MultiplyRowOnMatrix(row *Row, matrix *SquareMatrix) (*Row, error) {
-	if len(row.data) != len(matrix.data) {
+	if len(row.Data) != len(matrix.Data) {
 		return &Row{}, fmt.Errorf("inconsistent row and matrix sizes")
 	}
 
 	var result Row
-	result.data = make([]float64, len(matrix.data))
+	result.Data = make([]float64, len(matrix.Data))
 
-	wg.Add(len(result.data))
-	for i := 0; i < len(result.data); i++ {
+	wg.Add(len(result.Data))
+	for i := 0; i < len(result.Data); i++ {
 		go func(i int) {
-			result.data[i] = multiplyVectors(row.data, matrix.data[i])
+			result.Data[i] = multiplyVectors(row.Data, matrix.Data[i])
 			wg.Done()
 		}(i)
 	}
@@ -92,19 +92,19 @@ func MultiplyRowOnMatrix(row *Row, matrix *SquareMatrix) (*Row, error) {
 
 // TODO: how to remove all this copy-paste blocks ?
 func MultiplyMatrices(lhs, rhs *SquareMatrix) (*SquareMatrix, error) {
-	if len(lhs.data) != len(rhs.data) {
+	if len(lhs.Data) != len(rhs.Data) {
 		return &SquareMatrix{}, fmt.Errorf("inconsistent matrices sizes")
 	}
 
 	var result SquareMatrix
-	result.data = make([][]float64, len(lhs.data))
+	result.Data = make([][]float64, len(lhs.Data))
 
-	wg.Add(len(lhs.data) * len(rhs.data)) // a green thread per each pair of vectors
-	for i := 0; i < len(lhs.data); i++ {
-		result.data[i] = make([]float64, len(lhs.data))
-		for j := 0; j < len(rhs.data); j++ {
+	wg.Add(len(lhs.Data) * len(rhs.Data)) // a green thread per each pair of vectors
+	for i := 0; i < len(lhs.Data); i++ {
+		result.Data[i] = make([]float64, len(lhs.Data))
+		for j := 0; j < len(rhs.Data); j++ {
 			go func(i, j int) {
-				result.data[i][j] = multiplyVectors(lhs.data[i], rhs.data[j])
+				result.Data[i][j] = multiplyVectors(lhs.Data[i], rhs.Data[j])
 				wg.Done()
 			}(i, j)
 		}
