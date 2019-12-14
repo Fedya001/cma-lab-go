@@ -2,6 +2,7 @@ package utils
 
 import (
 	"cma-lab-go/matrix"
+	"math"
 	"math/rand"
 )
 
@@ -18,4 +19,27 @@ func GenerateSquareMatrix(size int32, min, max float64) *matrix.SquareMatrix {
 	// TODO: how to write this in one line ?
 	result, _ := matrix.NewSquareMatrix(data)
 	return result
+}
+
+// Euclid norm is used
+func getNorm(vector []float64) float64 {
+	var sum float64 = 0
+	for _, v := range vector {
+		sum += v * v
+	}
+	return math.Sqrt(sum)
+}
+
+func NormColumn(column *matrix.Column) {
+	norm := getNorm(column.Data)
+	for i, _ := range column.Data {
+		column.Data[i] /= norm
+	}
+}
+
+func NormRow(row *matrix.Row) {
+	norm := getNorm(row.Data)
+	for i, _ := range row.Data {
+		row.Data[i] /= norm
+	}
 }
