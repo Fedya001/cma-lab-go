@@ -22,7 +22,7 @@ func GenerateSquareMatrix(size int32, min, max float64) *matrix.SquareMatrix {
 }
 
 // Euclid norm is used
-func getNorm(vector []float64) float64 {
+func GetNorm(vector []float64) float64 {
 	var sum float64 = 0
 	for _, v := range vector {
 		sum += v * v
@@ -31,14 +31,14 @@ func getNorm(vector []float64) float64 {
 }
 
 func NormColumn(column *matrix.Column) {
-	norm := getNorm(column.Data)
+	norm := GetNorm(column.Data)
 	for i, _ := range column.Data {
 		column.Data[i] /= norm
 	}
 }
 
 func NormRow(row *matrix.Row) {
-	norm := getNorm(row.Data)
+	norm := GetNorm(row.Data)
 	for i, _ := range row.Data {
 		row.Data[i] /= norm
 	}
