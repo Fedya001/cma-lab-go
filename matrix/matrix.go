@@ -81,7 +81,10 @@ func MultiplyRowOnMatrix(row *Row, matrix *SquareMatrix) (*Row, error) {
 	wg.Add(len(result.Data))
 	for i := 0; i < len(result.Data); i++ {
 		go func(i int) {
-			result.Data[i] = multiplyVectors(row.Data, matrix.Data[i])
+			result.Data[i] = 0
+			for j := 0; j < len(result.Data); j++ {
+				result.Data[i] += row.Data[j] * matrix.Data[j][i]
+			}
 			wg.Done()
 		}(i)
 	}
