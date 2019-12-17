@@ -6,12 +6,24 @@ import (
 	"math/rand"
 )
 
-func GenerateSquareMatrix(size int32, min, max float64) *matrix.SquareMatrix {
+func MakeIdentity(size int) *matrix.SquareMatrix {
 	data := make([][]float64, 0, size)
 
-	for i := int32(0); i < size; i++ {
+	for i := 0; i < size; i++ {
+		data = append(data, make([]float64, size))
+		data[i][i] = 1
+	}
+
+	result, _ := matrix.NewSquareMatrix(data)
+	return result
+}
+
+func GenerateSquareMatrix(size int, min, max float64) *matrix.SquareMatrix {
+	data := make([][]float64, 0, size)
+
+	for i := 0; i < size; i++ {
 		data = append(data, make([]float64, 0, size))
-		for j := int32(0); j < size; j++ {
+		for j := 0; j < size; j++ {
 			data[i] = append(data[i], min + rand.Float64() * (max - min))
 		}
 	}
