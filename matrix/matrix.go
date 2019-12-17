@@ -116,3 +116,14 @@ func MultiplyMatrices(lhs, rhs *SquareMatrix) (*SquareMatrix, error) {
 
 	return &result, nil
 }
+
+func (squareMatrix *SquareMatrix) Transpose() {
+	size := len(squareMatrix.Data)
+
+	for i := 1; i < size; i++ {
+		for j := 0; j < i; j++ {
+			squareMatrix.Data[i][j], squareMatrix.Data[j][i] =
+				squareMatrix.Data[j][i], squareMatrix.Data[i][j]
+		}
+	}
+}
