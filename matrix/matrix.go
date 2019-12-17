@@ -107,7 +107,9 @@ func MultiplyMatrices(lhs, rhs *SquareMatrix) (*SquareMatrix, error) {
 		result.Data[i] = make([]float64, len(lhs.Data))
 		for j := 0; j < len(rhs.Data); j++ {
 			go func(i, j int) {
-				result.Data[i][j] = multiplyVectors(lhs.Data[i], rhs.Data[j])
+				for k := 0; k < len(lhs.Data); k++ {
+					result.Data[i][j] += lhs.Data[i][k] * rhs.Data[k][j]
+				}
 				wg.Done()
 			}(i, j)
 		}
