@@ -26,10 +26,11 @@ func main() {
 
 	matrices := []*matrix.SquareMatrix{matrixA, matrixB}
 
+	var matrixWriter io.MatrixWriter = io.NewConsoleMatrixWriter()
+
 	// 1. Power method
 	fmt.Println("1. Power method")
 	for _, m := range matrices {
-		var matrixWriter io.MatrixWriter = io.NewConsoleMatrixWriter()
 		matrixWriter.WriteMatrix(m)
 
 		initApprox := make([]float64, len(m.Data))
@@ -53,5 +54,21 @@ func main() {
 			fmt.Printf("Eigenvalue = %v\n", v.Value)
 			fmt.Printf("Eigenvector = %v\n", v.Vector)
 		}
+	}
+
+	// 2. Danilevskii method
+	fmt.Println("\n2. Danilevskii method")
+	for _, m := range matrices {
+		polynom := cma_methods.FindPolynomial(m)
+
+		first := true
+		for i, v := range polynom {
+			if (!first) {
+				fmt.Print(" + ")
+			}
+			fmt.Printf("%.8fx^{%v}", v, i)
+			first = false
+		}
+		fmt.Printf("\n\n")
 	}
 }
