@@ -21,7 +21,15 @@ func GenerateSquareMatrix(size int32, min, max float64) *matrix.SquareMatrix {
 	return result
 }
 
-// Euclid norm is used
+func GenerateVector(size int32, min, max float64) []float64 {
+	data := make([]float64, 0, size)
+	for i := int32(0); i < size; i++ {
+		data = append(data, min + rand.Float64() * (max - min))
+	}
+	return data
+}
+
+// max norm is used
 func GetNorm(vector []float64) float64 {
 	var max float64 = 0
 	for _, v := range vector {

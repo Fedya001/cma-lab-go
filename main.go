@@ -15,19 +15,24 @@ func main() {
 	runtime.GOMAXPROCS(20) // number of CPUs [configure it later]
 	rand.Seed(time.Now().UnixNano())
 
-	var matrixReader io.MatrixReader
-	matrices := []string{"data/matrixA.txt", "data/matrixB.txt"}
+	// Read matrices
+	matrixReaderA, _ := io.NewFileMatrixReader("data/matrixA.txt")
+	dimA, _ := matrixReaderA.ReadDimension()
+	matrixA, _ := matrixReaderA.ReadMatrix(dimA)
 
-	// power method
-	for _, path := range matrices {
-		matrixReader, _ = io.NewFileMatrixReader(path)
-		dim, _ := matrixReader.ReadDimension()
-		m, _ := matrixReader.ReadMatrix(dim)
+	matrixReaderB, _ := io.NewFileMatrixReader("data/matrixB.txt")
+	dimB, _ := matrixReaderB.ReadDimension()
+	matrixB, _ := matrixReaderB.ReadMatrix(dimB)
 
+	matrices := []*matrix.SquareMatrix{matrixA, matrixB}
+
+	// 1. Power method
+	fmt.Println("1. Power method")
+	for _, m := range matrices {
 		var matrixWriter io.MatrixWriter = io.NewConsoleMatrixWriter()
 		matrixWriter.WriteMatrix(m)
 
-		initApprox := make([]float64, dim)
+		initApprox := make([]float64, len(m.Data))
 		initApprox[0] = 1
 
 		eigenvectors, methodCase := cma_methods.FindMaxEigenvalues(m, matrix.NewColumn(initApprox))

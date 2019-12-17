@@ -32,8 +32,21 @@ func ensureEigenvectors(squareMatrix *matrix.SquareMatrix, eigenvectors ...*Eige
 	var wg = sync.WaitGroup{}
 
 	for index := 0; index < len(eigenvectors); index++ {
-		wg.Add(dim)
+		// simple test on nonzero vector
+		allZero := true
+		for i := 0; i < dim; i++ {
+			if math.Abs(real(eigenvectors[index].Vector[i])) > STOP_THRESHOLD {
+				allZero = false
+				break
+			}
+		}
 
+		if allZero {
+			return false
+		}
+
+
+		wg.Add(dim)
 		var sum float64 = 0
 		for i := 0; i < dim; i++ {
 			go func(i int) {
@@ -44,6 +57,7 @@ func ensureEigenvectors(squareMatrix *matrix.SquareMatrix, eigenvectors ...*Eige
 				localSum -= eigenvectors[index].Value * eigenvectors[index].Vector[i]
 				abs := cmplx.Abs(localSum)
 				sum += abs * abs
+
 				wg.Done()
 			}(i)
 		}
@@ -58,16 +72,16 @@ func ensureEigenvectors(squareMatrix *matrix.SquareMatrix, eigenvectors ...*Eige
 }
 
 // REAL_EIGENVALUE_CASE
-func makeRealEigenvector(curV, prevU []float64) *Eigenvector {
-	converted := make([]complex128, 0, len(prevU))
-	for i, _ := range prevU {
-		converted = append(converted, complex(prevU[i], 0))
+func makeRealEigenvector(prev, cur []float64) *Eigenvector {
+	converted := make([]complex128, 0, len(prev))
+	for i, _ := range cur {
+		converted = append(converted, complex(cur[i], 0))
 	}
 
 	var max float64 = 0
-	for i := 0; i < len(curV); i++ {
-		if prevU[i] != 0 {
-			max = math.Max(max, curV[i] / prevU[i])
+	for i := 0; i < len(cur); i++ {
+		if prev[i] != 0 {
+			max = math.Max(max, cur[i]/prev[i])
 		}
 	}
 
@@ -75,21 +89,21 @@ func makeRealEigenvector(curV, prevU []float64) *Eigenvector {
 }
 
 // OPPOSITE_PAIRED_EIGENVALUES_CASE
-func makeOppositeEigenvectors(curV, prevV, lastU []float64) []*Eigenvector {
+func makeOppositeEigenvectors(last, prev, cur []float64) []*Eigenvector {
 	var max float64 = 0
-	for i := 0; i < len(curV); i++ {
-		if lastU[i] != 0 {
-			max = math.Max(max, curV[i] * utils.GetNorm(prevV) / lastU[i])
+	for i := 0; i < len(cur); i++ {
+		if last[i] != 0 {
+			max = math.Max(max, cur[i]/last[i])
 		}
 	}
 	lambda := math.Sqrt(max)
 
-	plusVector := make([]complex128, 0, len(prevV))
-	minusVector := make([]complex128, 0, len(prevV))
+	plusVector := make([]complex128, 0, len(cur))
+	minusVector := make([]complex128, 0, len(cur))
 
-	for i, _ := range prevV {
-		plusVector = append(plusVector, complex(prevV[i]+lambda*lastU[i], 0))
-		minusVector = append(minusVector, complex(prevV[i]-lambda*lastU[i], 0))
+	for i, _ := range cur {
+		plusVector = append(plusVector, complex(cur[i]+lambda*prev[i], 0))
+		minusVector = append(minusVector, complex(cur[i]-lambda*prev[i], 0))
 	}
 
 	return []*Eigenvector{
@@ -99,28 +113,22 @@ func makeOppositeEigenvectors(curV, prevV, lastU []float64) []*Eigenvector {
 }
 
 // COMPLEX_EIGENVALUES_CASE
-func makeComplexEigenvector(lastU, lastV, middleU, middleV, prevU, prevV, curU, curV []float64) ([]*Eigenvector, bool) {
-	dim := len(curV)
+func makeComplexEigenvector(start, last, prev, cur []float64) ([]*Eigenvector, bool) {
+	dim := len(cur)
 
-	middleVNorm := utils.GetNorm(middleV)
-	prevVNorm := utils.GetNorm(prevV)
-
-	var maxInd = 0
-	var maxR float64 = 0
+	var r float64 = 0
 	for i := 0; i < dim; i++ {
-		denominator := lastU[i]*prevV[i] - middleU[i]*middleU[i]*middleVNorm
-		if math.Abs(denominator) > STOP_THRESHOLD { // just != 0
-			candidate := (middleV[i]*curV[i]*prevVNorm-prevV[i]*prevV[i]*middleVNorm)/denominator
-			if candidate > maxR {
-				maxR = candidate
-				maxInd = i
-			}
+		r = math.Max(r, math.Sqrt(math.Abs((last[i]*cur[i]-prev[i]*prev[i])/
+			(start[i]*prev[i]-last[i]*last[i]))))
+	}
+
+	var cosTetta float64 = 0
+	for i := 0; i < dim; i++ {
+		c := (cur[i]+r*r*last[i]) / (2*r*prev[i])
+		if math.Abs(c) > math.Abs(cosTetta) {
+			cosTetta = c
 		}
 	}
-	r := math.Sqrt(maxR)
-
-	cosTetta := (curV[maxInd]*prevVNorm + maxR*middleU[maxInd]) /
-		(2 * r * prevV[maxInd])
 
 	if math.Abs(cosTetta) > 1 {
 		return make([]*Eigenvector, 0), false
@@ -132,12 +140,13 @@ func makeComplexEigenvector(lastU, lastV, middleU, middleV, prevU, prevV, curU, 
 	lambdaTwo := complex(r*cosTetta, -r*sinTetta)
 
 	// Create eigenvectors
-	vectorOne := make([]complex128, 0, len(prevV))
-	vectorTwo := make([]complex128, 0, len(prevV))
+	vectorOne := make([]complex128, 0, dim)
+	vectorTwo := make([]complex128, 0, dim)
+
 
 	for i := 0; i < dim; i++ {
-		vectorOne = append(vectorOne, complex(prevV[i], 0)-lambdaTwo*complex(middleU[i], 0))
-		vectorTwo = append(vectorTwo, complex(prevV[i], 0)-lambdaOne*complex(middleU[i], 0))
+		vectorOne = append(vectorOne, complex(cur[i], 0)-lambdaTwo*complex(prev[i], 0))
+		vectorTwo = append(vectorTwo, complex(cur[i], 0)-lambdaOne*complex(prev[i], 0))
 	}
 
 	return []*Eigenvector{
@@ -146,58 +155,48 @@ func makeComplexEigenvector(lastU, lastV, middleU, middleV, prevU, prevV, curU, 
 	}, true
 }
 
-func doIteration(squareMatrix *matrix.SquareMatrix, curU, curV *matrix.Column) (*matrix.Column, *matrix.Column) {
-	nextU := matrix.NewColumn(make([]float64, len(squareMatrix.Data)))
-	copy(nextU.Data, curV.Data)
-
-	utils.NormColumn(nextU)
-	nextV, _ := matrix.MultiplyMatrixOnColumn(squareMatrix, nextU)
-	return nextU, nextV
-}
-
 func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Column) ([]*Eigenvector, EigenvalueCase) {
 	// middle = iteration before prev, last = iteration before middle
 
-	lastU := initApprox
-	lastV, _ := matrix.MultiplyMatrixOnColumn(squareMatrix, lastU)
-
-	middleU, middleV := doIteration(squareMatrix, lastU, lastV)
-	prevU, prevV := doIteration(squareMatrix, middleU, middleV)
+	start, _ := matrix.MultiplyMatrixOnColumn(squareMatrix, initApprox)
+	var last, prev, cur *matrix.Column
 
 	iterationLimit := 100000
 
+	// new modification : process a bunch of 4 vectors
+	// to simplify evaluations
 	for {
-		curU, curV := doIteration(squareMatrix, prevU, prevV)
+		// process 4 iterations at once
+		last, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, start)
+		prev, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, last)
+		cur, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, prev)
 
 		// Evaluate all eigenvalues using 3 formulas (for each case)
 
 		// case 1 : real eigenvalue
-		realEigenvector := makeRealEigenvector(curV.Data, prevU.Data)
+		realEigenvector := makeRealEigenvector(prev.Data, cur.Data)
 		if ensureEigenvectors(squareMatrix, realEigenvector) {
 			return []*Eigenvector{realEigenvector}, REAL_EIGENVALUE_CASE
 		}
 
 		// case 2 : opposite pairing eigenvalues
-		oppositeEigenvectors := makeOppositeEigenvectors(curV.Data, prevV.Data, lastU.Data)
+		oppositeEigenvectors := makeOppositeEigenvectors(last.Data, prev.Data, cur.Data)
 		if ensureEigenvectors(squareMatrix, oppositeEigenvectors...) {
 			return oppositeEigenvectors, OPPOSITE_PAIRED_EIGENVALUES_CASE
 		}
 
 		// case 3 : complex eigenvalues case
-		complexEigenvectors, ok := makeComplexEigenvector(
-			lastU.Data, lastV.Data, middleU.Data, middleV.Data,
-			prevU.Data, prevV.Data, curU.Data, curV.Data)
-
+		complexEigenvectors, ok := makeComplexEigenvector(start.Data, last.Data, prev.Data, cur.Data)
 		if ok && ensureEigenvectors(squareMatrix, complexEigenvectors...) {
 			return complexEigenvectors, COMPLEX_EIGENVALUES_CASE
 		}
 
-		lastU, lastV = middleU, middleV
-		middleU, middleV = prevU, prevV
-		prevU, prevV = curU, curV
+		utils.NormColumn(cur)
+		start, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, cur)
+		utils.NormColumn(start)
 
-		iterationLimit--
-		if iterationLimit == 0 {
+		iterationLimit -= 4
+		if iterationLimit <= 0 {
 			return []*Eigenvector{}, STUCK_CASE
 		}
 	}
