@@ -17,7 +17,7 @@ const (
 	STUCK_CASE
 )
 
-const STOP_THRESHOLD = 1e-10
+const STOP_THRESHOLD = 1e-11
 
 type Eigenvector struct {
 	Value  complex128
@@ -143,7 +143,6 @@ func makeComplexEigenvector(start, last, prev, cur []float64) ([]*Eigenvector, b
 	vectorOne := make([]complex128, 0, dim)
 	vectorTwo := make([]complex128, 0, dim)
 
-
 	for i := 0; i < dim; i++ {
 		vectorOne = append(vectorOne, complex(cur[i], 0)-lambdaTwo*complex(prev[i], 0))
 		vectorTwo = append(vectorTwo, complex(cur[i], 0)-lambdaOne*complex(prev[i], 0))
@@ -160,8 +159,6 @@ func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Co
 
 	start, _ := matrix.MultiplyMatrixOnColumn(squareMatrix, initApprox)
 	var last, prev, cur *matrix.Column
-
-	iterationLimit := 100000
 
 	// new modification : process a bunch of 4 vectors
 	// to simplify evaluations
@@ -194,11 +191,6 @@ func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Co
 		utils.NormColumn(cur)
 		start, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, cur)
 		utils.NormColumn(start)
-
-		iterationLimit -= 4
-		if iterationLimit <= 0 {
-			return []*Eigenvector{}, STUCK_CASE
-		}
 	}
 
 }
