@@ -60,18 +60,39 @@ func main() {
 	for _, m := range matrices {
 		matrixWriter.WriteMatrix(m)
 
-		polynomial := cma_methods.FindPolynomial(m)
+		polynomial, transform, blocksSplit := cma_methods.FindPolynomial(m)
 
 		first := true
 		for i, v := range polynomial {
 			if !first {
 				fmt.Print(" + ")
 			}
-			fmt.Printf("%.8fx^{%v}", v, i)
+			fmt.Printf("%vx^{%v}", v, i)
 			first = false
 		}
 		fmt.Printf("\n\n")
-		fmt.Printf("Eigenvalues = %v\n\n", cma_methods.FindPolynomialRoots(polynomial))
+
+		eigenvalues := cma_methods.FindPolynomialRoots(polynomial)
+		fmt.Printf("Eigenvalues = %v\n", eigenvalues)
+
+		if blocksSplit {
+			fmt.Printf("Unable to recover eigenvectors, because there was a block split\n\n")
+		} else {
+			for _, eigenvalue := range eigenvalues {
+				fmt.Println("")
+				eigenvector := make([]float64, len(transform.Data))
+				var lambda float64 = 1
+				for i := len(transform.Data) - 1; i >= 0; i-- {
+					eigenvector[i] = lambda
+					lambda *= eigenvalue
+				}
+
+				eigenvectorTransformed, _ := matrix.MultiplyMatrixOnColumn(transform, matrix.NewColumn(eigenvector))
+
+				fmt.Printf("Eigenvalue = %v\n", eigenvalue)
+				fmt.Printf("Eigenvector = %v\n", eigenvectorTransformed.Data)
+			}
+		}
 	}
 
 	// 3. QR-algorithm
@@ -85,7 +106,7 @@ func main() {
 
 		for i, _ := range eigenvectors {
 			fmt.Printf("Eigenvalue = %v\n", eigenvalues[i])
-			fmt.Printf("Eigenvector = %v\n", eigenvectors[i])
+			fmt.Printf("Eigenvector = %v\n\n", eigenvectors[i])
 		}
 		fmt.Println()
 	}

@@ -2,13 +2,14 @@ package cma_methods
 
 import (
 	"cma-lab-go/matrix"
+	"cma-lab-go/utils"
 	"math"
 	"sync"
 )
 
 func multiplyPolynomials(lhs, rhs []float64) []float64 {
 	n, m := len(lhs), len(rhs)
-	result := make([]float64, n + m - 1)
+	result := make([]float64, n+m-1)
 
 	for k1, v1 := range lhs {
 		for k2, v2 := range rhs {
@@ -21,12 +22,15 @@ func multiplyPolynomials(lhs, rhs []float64) []float64 {
 		last--
 	}
 
-	// TODO : check it
-	return result[:last + 1]
+	return result[:last+1]
 }
 
-func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
+// returns the polynomial, transformation matrix and boolean flag,
+// which says whether there was a block split in algorithm
+func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) ([]float64, *matrix.SquareMatrix, bool) {
 	size := len(squareMatrixOriginal.Data)
+	splitFlag := false
+	transform := utils.MakeIdentity(size)
 
 	// make a deep copy
 	squareMatrix := matrix.SquareMatrix{}
@@ -53,6 +57,11 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 		}
 
 		if maxInd != column {
+			for i := 0; i < size; i++ {
+				transform.Data[i][maxInd], transform.Data[i][column] =
+					transform.Data[i][column], transform.Data[i][maxInd]
+			}
+
 			for i := 0; i <= column+1; i++ {
 				squareMatrix.Data[i][maxInd], squareMatrix.Data[i][column] =
 					squareMatrix.Data[i][column], squareMatrix.Data[i][maxInd]
@@ -64,6 +73,8 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 
 		if math.Abs(squareMatrix.Data[column+1][column]) < 1e-9 {
 			// split case
+			splitFlag = true
+
 			polynom := make([]float64, 0, prevSlice-column-1)
 			pol_len := prevSlice - column - 1
 			for i := prevSlice - 1; i >= column+1; i-- {
@@ -90,9 +101,13 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 		copy(baseRowBuf.Data, squareMatrix.Data[column+1])
 
 		// M_n
+		for i := 0; i < size; i++ {
+			transform.Data[i][column] /= squareMatrix.Data[column+1][column]
+		}
 		for i := 0; i <= column+1; i++ {
 			squareMatrix.Data[i][column] /= squareMatrix.Data[column+1][column]
 		}
+
 
 		wg.Add(size - 1)
 		for j := 0; j < size; j++ {
@@ -101,10 +116,12 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 			}
 
 			go func(j, column int) {
+				for i := 0; i < size; i++ {
+					transform.Data[i][j] -= transform.Data[i][column] * squareMatrix.Data[column+1][j]
+				}
 				for i := 0; i <= column+1; i++ {
 					squareMatrix.Data[i][j] -= squareMatrix.Data[i][column] * squareMatrix.Data[column+1][j]
 				}
-
 				wg.Done()
 			}(j, column)
 		}
@@ -112,7 +129,6 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 
 		// M_n^{-1}
 		buf, _ := matrix.MultiplyRowOnMatrix(&baseRowBuf, &squareMatrix)
-
 		copy(squareMatrix.Data[column], buf.Data)
 	}
 
@@ -130,7 +146,6 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 		polynom = append(polynom, 1)
 	} else {
 		polynom = append(polynom, -1)
-
 	}
 
 	polynomials = append(polynomials, polynom)
@@ -142,5 +157,5 @@ func FindPolynomial(squareMatrixOriginal *matrix.SquareMatrix) []float64 {
 		result = multiplyPolynomials(result, polynomials[i])
 	}
 
-	return result
+	return result, transform, splitFlag
 }
