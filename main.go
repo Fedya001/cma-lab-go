@@ -60,10 +60,10 @@ func main() {
 	for _, m := range matrices {
 		matrixWriter.WriteMatrix(m)
 
-		polynom := cma_methods.FindPolynomial(m)
+		polynomial := cma_methods.FindPolynomial(m)
 
 		first := true
-		for i, v := range polynom {
+		for i, v := range polynomial {
 			if !first {
 				fmt.Print(" + ")
 			}
@@ -71,6 +71,7 @@ func main() {
 			first = false
 		}
 		fmt.Printf("\n\n")
+		fmt.Printf("Eigenvalues = %v\n\n", cma_methods.FindPolynomialRoots(polynomial))
 	}
 
 	// 3. QR-algorithm
