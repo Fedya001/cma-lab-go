@@ -154,7 +154,7 @@ func makeComplexEigenvector(start, last, prev, cur []float64) ([]*Eigenvector, b
 	}, true
 }
 
-func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Column) ([]*Eigenvector, EigenvalueCase) {
+func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Column) ([]*Eigenvector, EigenvalueCase, int) {
 	// middle = iteration before prev, last = iteration before middle
 
 	start, _ := matrix.MultiplyMatrixOnColumn(squareMatrix, initApprox)
@@ -162,7 +162,9 @@ func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Co
 
 	// new modification : process a bunch of 4 vectors
 	// to simplify evaluations
+	iterations := 0
 	for {
+		iterations += 3
 		// process 4 iterations at once
 		last, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, start)
 		prev, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, last)
@@ -173,23 +175,24 @@ func FindMaxEigenvalues(squareMatrix *matrix.SquareMatrix, initApprox *matrix.Co
 		// case 1 : real eigenvalue
 		realEigenvector := makeRealEigenvector(prev.Data, cur.Data)
 		if ensureEigenvectors(squareMatrix, realEigenvector) {
-			return []*Eigenvector{realEigenvector}, REAL_EIGENVALUE_CASE
+			return []*Eigenvector{realEigenvector}, REAL_EIGENVALUE_CASE, iterations
 		}
 
 		// case 2 : opposite pairing eigenvalues
 		oppositeEigenvectors := makeOppositeEigenvectors(last.Data, prev.Data, cur.Data)
 		if ensureEigenvectors(squareMatrix, oppositeEigenvectors...) {
-			return oppositeEigenvectors, OPPOSITE_PAIRED_EIGENVALUES_CASE
+			return oppositeEigenvectors, OPPOSITE_PAIRED_EIGENVALUES_CASE, iterations
 		}
 
 		// case 3 : complex eigenvalues case
 		complexEigenvectors, ok := makeComplexEigenvector(start.Data, last.Data, prev.Data, cur.Data)
 		if ok && ensureEigenvectors(squareMatrix, complexEigenvectors...) {
-			return complexEigenvectors, COMPLEX_EIGENVALUES_CASE
+			return complexEigenvectors, COMPLEX_EIGENVALUES_CASE, iterations
 		}
 
 		utils.NormColumn(cur)
 		start, _ = matrix.MultiplyMatrixOnColumn(squareMatrix, cur)
+		iterations++
 		utils.NormColumn(start)
 	}
 
