@@ -4,6 +4,7 @@ import (
 	"cma-lab-go/cma_methods"
 	"cma-lab-go/io"
 	"cma-lab-go/matrix"
+	"cma-lab-go/utils"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -109,5 +110,19 @@ func main() {
 			fmt.Printf("Eigenvector = %v\n\n", eigenvectors[i])
 		}
 		fmt.Println()
+	}
+
+	// measure QR-algorithm time
+	min, max := -1000000000.0, 1000000000.0
+	for _, size := range []int{
+		10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
+		120, 130, 140, 150, 160, 170, 180, 190, 200,
+	} {
+		m := utils.GenerateSquareMatrix(size, min, max)
+
+		start := time.Now()
+		_, _, _ = cma_methods.SolveQR(m)
+		fmt.Printf("Size = %v => time = %v milliseconds\n", size,
+			time.Since(start).Milliseconds())
 	}
 }
