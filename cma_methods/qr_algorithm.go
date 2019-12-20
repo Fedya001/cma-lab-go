@@ -7,6 +7,8 @@ import (
 	"math/cmplx"
 )
 
+const ZERO_THRESHOLD = 1e-10
+
 // rotation rules
 // i-th row : cos -sin
 // j-th row : sin cos
@@ -55,6 +57,7 @@ func directZeroElement(transform, squareMatrix *matrix.SquareMatrix, i, j int) {
 	// i : sin cos
 	rotateLeft(squareMatrix, j, i, cos, -sin)
 	rotateRight(squareMatrix, j, i, cos, sin)
+	rotateRight(transform, j, i, cos, sin)
 }
 
 func doQRIteration(transform, squareMatrix *matrix.SquareMatrix) {
@@ -67,7 +70,7 @@ func doQRIteration(transform, squareMatrix *matrix.SquareMatrix) {
 	for i := 1; i < size; i++ {
 		j := i - 1
 
-		if math.Abs(squareMatrix.Data[i][j]) < STOP_THRESHOLD {
+		if math.Abs(squareMatrix.Data[i][j]) < ZERO_THRESHOLD {
 			continue
 		}
 
@@ -89,25 +92,45 @@ func doQRIteration(transform, squareMatrix *matrix.SquareMatrix) {
 	}
 }
 
-func extractEigenvalues(squareMatrix *matrix.SquareMatrix) ([]complex128, bool) {
+func stopCheck(squareMatrix *matrix.SquareMatrix) bool {
+	size := len(squareMatrix.Data)
+
+	for i := 1; i < size; i++ {
+		j := i - 1
+		if math.Abs(squareMatrix.Data[i][j]) > ZERO_THRESHOLD {
+			// block
+			trace := squareMatrix.Data[j][j] + squareMatrix.Data[j+1][j+1]
+			det := squareMatrix.Data[j+1][j+1]*squareMatrix.Data[j][j] -
+				squareMatrix.Data[i][j]*squareMatrix.Data[j][i]
+			// this is real
+			if trace*trace-4*det >= ZERO_THRESHOLD {
+				// real block
+				return false
+			} else {
+				// complex block
+				if i + 1 < size && j + 1 < size && math.Abs(squareMatrix.Data[i + 1][j + 1]) > ZERO_THRESHOLD {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
+}
+
+func extractEigenvalues(squareMatrix *matrix.SquareMatrix) []complex128 {
 	size := len(squareMatrix.Data)
 
 	var eigenvalues []complex128
 	for i := 1; i < size; i++ {
 		j := i - 1
-		if math.Abs(squareMatrix.Data[i][j]) > STOP_THRESHOLD {
+		if math.Abs(squareMatrix.Data[i][j]) > ZERO_THRESHOLD {
 			// block
 			trace := squareMatrix.Data[j][j] + squareMatrix.Data[j+1][j+1]
 			det := squareMatrix.Data[j+1][j+1]*squareMatrix.Data[j][j] -
 				squareMatrix.Data[i][j]*squareMatrix.Data[j][i]
-
 			// l^2 - trace + det = 0
 			d := complex(trace*trace-4*det, 0)
-
-			// this is real
-			if trace*trace-4*det >= 0 {
-				return make([]complex128, 0), false
-			}
 
 			eigenvalues = append(eigenvalues,
 				(complex(trace, 0)+cmplx.Sqrt(d))/2,
@@ -121,11 +144,11 @@ func extractEigenvalues(squareMatrix *matrix.SquareMatrix) ([]complex128, bool) 
 	// extra check for the real matrix[size - 1][size - 1] element
 	// [complex case is processed in cycle]
 
-	if math.Abs(squareMatrix.Data[size-1][size-2]) < STOP_THRESHOLD {
+	if math.Abs(squareMatrix.Data[size-1][size-2]) < ZERO_THRESHOLD {
 		eigenvalues = append(eigenvalues, complex(squareMatrix.Data[size-1][size-1], 0))
 	}
 
-	return eigenvalues, true
+	return eigenvalues
 }
 
 // fills with zero complex numbers
@@ -135,7 +158,7 @@ func extractEigenvectors(squareMatrix, transform *matrix.SquareMatrix) [][]float
 	eigenvectors := make([][]float64, 0, size)
 	for i := 1; i < size; i++ {
 		j := i - 1
-		if math.Abs(squareMatrix.Data[i][j]) > STOP_THRESHOLD {
+		if math.Abs(squareMatrix.Data[i][j]) > ZERO_THRESHOLD {
 			eigenvectors = append(eigenvectors, nil, nil)
 			i++
 		} else {
@@ -147,7 +170,7 @@ func extractEigenvectors(squareMatrix, transform *matrix.SquareMatrix) [][]float
 		}
 	}
 
-	if math.Abs(squareMatrix.Data[size-1][size-2]) < STOP_THRESHOLD {
+	if math.Abs(squareMatrix.Data[size-1][size-2]) < ZERO_THRESHOLD {
 		vector := make([]float64, 0, size)
 		for k := 0; k < size; k++ {
 			vector = append(vector, transform.Data[k][size-1])
@@ -175,65 +198,18 @@ func SolveQR(squareMatrixOriginal *matrix.SquareMatrix) ([]complex128, [][]float
 	transform := utils.MakeIdentity(size)
 	for j := 0; j < size - 2; j++ {
 		for i := j + 2; i < size; i++ {
-			if squareMatrix.Data[i][j] != 0 {
+			if math.Abs(squareMatrix.Data[i][j]) > ZERO_THRESHOLD {
 				directZeroElement(transform, &squareMatrix, i, j)
 			}
 		}
 	}
 
 	// iterations of QR using rotations (non-direct)
-	var prevEigenvalues []complex128
-	prevSuccess := false
-
 	iterations := 0
-	for {
+	for ;!stopCheck(&squareMatrix); {
 		doQRIteration(transform, &squareMatrix)
 		iterations++
-
-		prev := -2
-		curSuccess := true
-		for i := 1; i < size; i++ {
-			j := i - 1
-			if math.Abs(squareMatrix.Data[i][j]) > STOP_THRESHOLD {
-				if j == prev+1 {
-					// two consequent blocks case
-					curSuccess = false
-					break
-				}
-				prev = j
-			}
-		}
-
-		if !curSuccess {
-			prevSuccess = false
-			continue
-		}
-
-		curEigenvalues, ok := extractEigenvalues(&squareMatrix)
-
-		if !ok {
-			continue
-		}
-
-		if prevSuccess && len(prevEigenvalues) == len(curEigenvalues) {
-			success := true
-			for i := 0; i < len(prevEigenvalues); i++ {
-				if cmplx.Abs(prevEigenvalues[i]-curEigenvalues[i]) > STOP_THRESHOLD {
-					//success = false
-					break
-				}
-			}
-
-			// additionally check elements under diagonal !
-			if success {
-				break
-			}
-		}
-
-		prevEigenvalues = curEigenvalues
-		prevSuccess = true
 	}
 
-	eigenvalues, _ := extractEigenvalues(&squareMatrix)
-	return eigenvalues, extractEigenvectors(&squareMatrix, transform), iterations
+	return extractEigenvalues(&squareMatrix), extractEigenvectors(&squareMatrix, transform), iterations
 }
